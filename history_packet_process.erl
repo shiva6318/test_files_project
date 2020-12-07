@@ -4,20 +4,23 @@
 
 
 -export([ start_link/2, init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([ get_history_packet_time_and_device_name/2, get_two_live_packet_details/3, timestamp_to_seconds/1]).
 
-
--record( state, { topology,
+-record( history_state, { topology,
 		  device_id
 		}).
 
 -define( NEXT_WAKEUP_INTERVAL, 5000).
+-include("ht_hardware.hrl").
+-include("ht_records.hrl").
 
 
 %%=====================================================================
 
--spec( start_link() -> {ok, Pid :: pid()} | ignore | {error, Error :: term()} ).
+-spec( start_link( term(), term()) -> {ok, Pid :: pid()} | ignore | {error, Error :: term()} ).
 
 start_link(Topology, Device_id) ->
+	io:format(" in startlink : device_id :~p~n",[Device_id]),
 	gen_server:start_link({local,?MODULE}, ?MODULE, [Topology, Device_id], []).
 
 
@@ -44,8 +47,8 @@ start_link(Topology, Device_id) ->
 init([Topology, Device_id]) ->
 
 	self() ! tick,
-
-	{ ok, #state { topology = Topology, device_id = Device_id } }.
+	io:format("cron job started in init~n"),
+	{ ok, #history_state { topology = Topology, device_id = Device_id } }.
 
 
 %% handle_call/3
@@ -101,9 +104,9 @@ handle_cast(_Msg, State) ->
 %% ====================================================================
 handle_info(tick, State) ->
 
-	erlang:send_after( ?NEXT_WAVEUP_INTERVAL, self(), tick ),
-
-	history_packet_recovery( State#state.topology, State#state.device_id),
+	erlang:send_after( ?NEXT_WAKEUP_INTERVAL, self(), tick ),
+	io:format("in handle_info, to reccovery the history packet~n~n"),
+	history_packet_recovery( State#history_state.topology, State#history_state.device_id),
 
 	{noreply, State};
 
@@ -140,16 +143,22 @@ code_change(_OldVsn, State, _Extra) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 history_packet_recovery( Topology, Device_id ) ->
-
+	
+	io:format(" in history packet recovery:~n"),
+	
 	{PacketTime, Device_name} = get_history_packet_time_and_device_name( Topology, Device_id),
-
+	io:format( " in history packet, Packettime~p, device_name ~p~n",[PacketTime,Device_name]),
+	
 	Map = get_two_live_packet_details( Topology, Device_id, PacketTime),
+	io:format("in history packet, Map~p~n",[Map]),
 
    	Record = convert_record(Map),
   	FirstLive = lists:nth(1,Record),
   	LivePacketTime = FirstLive#track.packet_time,
 
 	Cur = get_history_packets( Topology, Device_id, LivePacketTime),
+
+	io:format( " in history packet, cur~p~n",[Cur]),
 
 	erlang:apply( erlang:binary_to_atom(Device_name), recovery_history_packet, [[ Topology, lists:nth(1, Record), lists:nth(2, Record), Cur]]).
 
@@ -161,9 +170,9 @@ convert_record([H|T],Track) ->
    convert_record(T,Track++[NT]).
 
 
-get_two_live_packets_detals( Topology, Device_id, PacketTime) ->
+get_two_live_packet_details( Topology, Device_id, PacketTime) ->
 	
-	 Key = #{<<"$query">> => #{<<"asset_id">> => Device_id,<<"packet_type">> => <<"live">>,<<"packet_time">> => #{<<"$lt">> => PacketTime}},<<"$orderby">> => #{<<"packet_time">> => -1}},
+	 Key = #{<<"$query">> => #{<<"asset_id">> => Device_id,<<"packet_type">> => <<"live">>,<<"created">> => #{<<"$lt">> => PacketTime}},<<"$orderby">> => #{<<"created">> => -1}},
 
 	Projector = #{projector => #{<<"fixtime">> => true,<<"created">> => true,<<"speed">> => true,<<"idle_time">> => true,<<"latitude">> => true,<<"longitude">> => true,<<"battery_voltage">> => true,<<"course">> => true,<<"packet_type">> => true,<<"packet_time">> => true,<<"alarm_bit">> => true,<<"lock_status">> => true}},
   	{ok, Cur} = mc_worker_api:find(Topology,<<"track">>, Key, Projector),
@@ -174,12 +183,15 @@ get_two_live_packets_detals( Topology, Device_id, PacketTime) ->
 
 get_history_packet_time_and_device_name( Topology, Device_id) ->
 
-	Key = #{<<"$query">> => #{<<"asset_id">> => Device_id, <<"packet_type">> => <<"history">>,<<"packet_time">> => #{<<"$gte">> => new Date().getTime() - (5*60*1000)}},<<"$orderby">> => #{<<"packet_time">> => -1}},
+	 Seconds = (calendar:datetime_to_gregorian_seconds(calendar:universal_time()) )- (5*60),
+
+	Key = #{<<"$query">> => #{<<"asset_id">> => Device_id, <<"packet_type">> => <<"history">>,<<"created">> => #{<<"$gte">> => bson:secs_to_unixtime(Seconds)}},<<"$orderby">> => #{<<"created">> => 1}},
   	Projector = #{projector => #{<<"_id">> => false,<<"packet_time">> => true, <<"device_name">> => true}},
   	{ok, Cur} = mc_worker_api:find(Topology,<<"track">>, Key,Projector),
-  	[#{<<"packet_time">>:= PacketTime, <<"device_name">> := DeviceName}] = mc_cursor:take(Cur,1),
+  	%[#{<<"packet_time">> => PacketTime, <<"device_name">> => DeviceName}] 
+	[Map] = mc_cursor:take(Cur,1),
   	mc_cursor:close(Cur),
-	{PacketTime, DeviceName}.
+	{maps:get(<<"packet_time">>, Map),maps:get(<<"device_name">>, Map)}. %PacketTime, DeviceName}.
 
 get_history_packets( Topology, Device_id, PacketTime) ->
 	Key = #{<<"$query">> => #{<<"asset_id">> => Device_id,<<"packet_type">> => <<"history">>,<<"packet_time">> => #{<<"$gte">> => PacketTime}},<<"$orderby">> => #{<<"packet_time">> => 1}},
@@ -222,4 +234,7 @@ from_map(Map) ->
     status_report = maps:get(<<"status_report">>,Map, <<"">>),
     status_type = maps:get(<<"status_type">>,Map, <<"">>)}.
 
+
+timestamp_to_seconds(Timestamp) ->
+    bson:unixtime_to_secs(Timestamp).
 

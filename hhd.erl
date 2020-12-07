@@ -1,6 +1,10 @@
 -module(hhd).
 
 -export([recovery_history_packet/4]).
+-include("ht_hardware.hrl").
+-include("ht_records.hrl").
+
+-spec( recovery_history_packet( term(), term(), term(), term()) -> {ok, Pid :: pid()} | ignore | {error, Error :: term()} ).
 
 recovery_history_packet(Topology,LiveLatest,LiveBefore,Cur) ->
 
@@ -20,9 +24,9 @@ hhd_history_packet_recovery(LiveLatest,LiveBefore,Track) ->
    AssetId = Track#track.asset_id,
    Alarm_bit = Track#track.alarm_bit,
    Speed = Track#track.speed,
-   <<Current_lock:2/binary,Battery:3/binary,TearStatus:1/binary,ReportReason:1/binary>> = Alarm_bit,
-   <<Previous_lock:2/binary,Prev_Batt:3,_/binary>> = LiveLatest#track.alarm_bit,
-   <<Before_lock:2/binary,Before_Batt:3,_/binary>> = LiveBefore#track.alarm_bit,
+   <<_Current_lock:2/binary,Battery:3/binary,TearStatus:1/binary,ReportReason:1/binary>> = Alarm_bit,
+   <<_Previous_lock:2/binary,Prev_Batt:3,_/binary>> = LiveLatest#track.alarm_bit,
+   <<_Before_lock:2/binary,Before_Batt:3,_/binary>> = LiveBefore#track.alarm_bit,
 
    UpdatedTrack2 = case Track#track.valid of
      true ->  Track;
@@ -99,7 +103,7 @@ check_idle_case(_Speed,AssetId,TrackModel) ->
 check_wirecut(Track, Bit) when Bit =:= <<"2">> ->
 	ht_storage_mongodb:update_order(Track#track.asset_id,wirecut),
   	Track;
-check_wirecut( _, _) ->
+check_wirecut( Track, _) ->
       Track.
 
 update_report_reason(Track,Bit) when Bit =:= <<"E">> ->

@@ -162,7 +162,7 @@
   remaining_batt = <<"">> :: string(),
   alarm_report = <<"NA">> ::string(),
   alarm_type = <<"NA">> ::string(),
-  requested = null :: atom(), %% shiva code
+
   status_report = <<"NA">> ::string(),
   status_type = <<"NA">> ::string()
 }).
@@ -288,6 +288,24 @@
 %%    alert_id = 0 :: integer()
 %%  }).
 
+%%web commands hhd   shiva code
+-record(config_info_hhd, {
+  cmd_send_time = <<"">> :: string(),
+  cmd_receive_time = <<"">> :: string(),
+  cmd_send = <<"">> :: string(),
+  cmd_receive = <<"">> :: string(),
+  rfid = <<"">> ::string(),
+  fwVersion = <<"">> ::string(),
+  sim1_ip = <<"">> ::string(),
+  sim2_ip = <<"">> ::string(),
+  sim1_port = <<"">> ::string(),
+  sim2_port = <<"">> ::string(),
+  apn1 = <<"">> :: string(),
+  apn2 = <<"">> :: string(),
+  sleepTime = <<"">> :: string(),  %% seconds
+  wakeupTime = <<"">> :: string()  %% seconds
+}).
+
 -record(last_alert, {
   id = 0 :: integer(),
   asset_id = 0 :: integer(),
@@ -327,25 +345,6 @@
   usersCounter :: integer(),
   devicesCounter :: integer()
 }).
-
-%%web commands hhd
--record(config_info_hhd, {
-  cmd_send_time = <<"">> :: string(),
-  cmd_receive_time = <<"">> :: string(),
-  cmd_send = <<"">> :: string(),
-  cmd_receive = <<"">> :: string(),
-  rfid = <<"">> ::string(),
-  fwVersion = <<"">> ::string(),
-  sim1_ip = <<"">> ::string(),
-  sim2_ip = <<"">> ::string(),
-  sim1_port = <<"">> ::string(),
-  sim2_port = <<"">> ::string(),
-  apn1 = <<"">> :: string(),
-  apn2 = <<"">> :: string(),
-  sleepTime = <<"">> :: string(),  %% seconds
-  wakeupTime = <<"">> :: string()  %% seconds
-}).
-
 
 %%  Device
 -define(STATUS_UNKNOWN, <<"unknown">>).

@@ -285,8 +285,7 @@ get_geo_type_and_geo_name(AssetId) ->
   Key = list_to_atom("alert_" ++ integer_to_list(AssetId)),
   gen_server:call(?SERVER, {get_geo_type_and_geo_geo_name, Key}).
 
-
-%% web commands hhd 
+%% web commands hhd
 -spec(create_config_info_hhd(Key:: any(),Rec :: #config_info_hhd{}) -> {ok, #config_info_hhd{}} | {error, string() | [string()]}).
 create_config_info_hhd(AssetId, Rec) ->
   Key = list_to_atom("config_" ++ integer_to_list(AssetId)),
@@ -311,7 +310,6 @@ get_single_config_info_hhd(AssetId,Field) ->
 mupdate_config_info_hhd(AssetId,KeyValuePairs) ->
   Key = list_to_atom("config_" ++ integer_to_list(AssetId)),
   gen_server:call(?SERVER, {mupdate_config_info_hhd, Key,KeyValuePairs}).
-
 
 %%%%%%%%%%%%%%%%% shiva code end %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -507,7 +505,6 @@ handle_call({get_geofence_out_data, Key}, _From, State) ->
 
 handle_call({get_geo_type_and_geo_name, Key}, _From, State) ->
   {reply, get_geo_type_and_geo_name(State,Key), State};
-
 
 %% web hhd comands
 handle_call({create_config_info_hhd, Key, Rec}, _From, State) ->
